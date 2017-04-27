@@ -13,6 +13,7 @@ declare(strict_types=1);
 namespace SebastianBergmann\GlobalState;
 
 use ReflectionClass;
+use SebastianBergmann\ObjectEnumerator\Enumerator;
 use Serializable;
 
 /**
@@ -342,26 +343,31 @@ class Snapshot
         }
     }
 
-    /**
-     * @todo Implement this properly
-     */
     private function canBeSerialized($variable): bool
     {
-        if (!\is_object($variable)) {
-            return !\is_resource($variable);
+        if (\is_resource($variable)) {
+            return false;
+        }
+
+        if (!\is_array($variable) && !\is_object($variable)) {
+            return true;
         }
 
         if ($variable instanceof \stdClass) {
             return true;
         }
 
-        $class = new ReflectionClass($variable);
+        $enumerator = new Enumerator;
 
-        do {
-            if ($class->isInternal()) {
-                return $variable instanceof Serializable;
-            }
-        } while ($class = $class->getParentClass());
+        foreach ($enumerator->enumerate($variable) as $object) {
+            $class = new ReflectionClass($variable);
+
+            do {
+                if ($class->isInternal() && !$variable instanceof Serializable) {
+                    return false;
+                }
+            } while ($class = $class->getParentClass());
+        }
 
         return true;
     }
